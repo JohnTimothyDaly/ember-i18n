@@ -3,8 +3,7 @@ import Ember from "ember";
 // @private
 //
 // This class is the work-horse of localization look-up.
-export default class Locale {
-
+function Locale(id, container) {
   // On Construction:
   //  1. look for translations in the locale (e.g. pt-BR) and all parent
   //     locales (e.g. pt), flatten any nested keys, and then merge them.
@@ -12,70 +11,68 @@ export default class Locale {
   //     and use the first value for `rtl` and `pluralForm`
   //  3. Default `rtl` to `false`
   //  4. Ensure `pluralForm` is defined
-  constructor(id, container) {
-    this.id = id;
-    this.container = container;
-    this.rebuild();
+  this.id = id;
+  this.container = container;
+  this.rebuild();
+}
+
+Locale.prototype.rebuild() {
+  this.translations = getFlattenedTranslations(this.id, this.container);
+
+  walkConfigs(this.id, this.container, (config) => {
+    if (this.rtl === undefined) { this.rtl = config.rtl; }
+    if (this.pluralForm === undefined) { this.pluralForm = config.pluralForm; }
+  });
+
+  if (this.rtl === undefined) { this.rtl = false; }
+  if (this.pluralForm === undefined) {
+    throw new Error(`No pluralForm found for ${this.id}`);
+  }
+}
+
+Locale.prototype.getCompiledTemplate(key, count) {
+  if (this.translations === undefined) { this._init(); }
+
+  var result;
+
+  if (count != null) {
+    const inflection = this.pluralForm(count);
+    result = this.translations[`${key}.${inflection}`];
   }
 
-  rebuild() {
-    this.translations = getFlattenedTranslations(this.id, this.container);
-
-    walkConfigs(this.id, this.container, (config) => {
-      if (this.rtl === undefined) { this.rtl = config.rtl; }
-      if (this.pluralForm === undefined) { this.pluralForm = config.pluralForm; }
-    });
-
-    if (this.rtl === undefined) { this.rtl = false; }
-    if (this.pluralForm === undefined) {
-      throw new Error(`No pluralForm found for ${this.id}`);
-    }
+  if (result == null) {
+    result = this.translations[key];
   }
 
-  getCompiledTemplate(key, count) {
-    if (this.translations === undefined) { this._init(); }
-
-    var result;
-
-    if (count != null) {
-      const inflection = this.pluralForm(count);
-      result = this.translations[`${key}.${inflection}`];
-    }
-
-    if (result == null) {
-      result = this.translations[key];
-    }
-
-    if (Ember.typeOf(result) === 'string') {
-      result = this._compileTemplate(key, result);
-    }
-
-    if (result == null) {
-      result = this._defineMissingTranslationTemplate(key);
-    }
-
-    Ember.assert(`Template for ${key} in ${this.id} is not a function`, Ember.typeOf(result) === 'function');
-
-    return result;
+  if (Ember.typeOf(result) === 'string') {
+    result = this._compileTemplate(key, result);
   }
 
-  _defineMissingTranslationTemplate(key) {
-    const missingMessage = this.container.lookupFactory('util:i18n/missing-message');
-    const locale = this.id;
-
-    function missingTranslation(data) { return missingMessage(locale, key, data); }
-
-    missingTranslation._isMissing = true;
-    this.translations[key] = missingTranslation;
-    return missingTranslation;
+  if (result == null) {
+    result = this._defineMissingTranslationTemplate(key);
   }
 
-  _compileTemplate(key, string) {
-    const compile = this.container.lookupFactory('util:i18n/compile-template');
-    const template = compile(string, this.rtl);
-    this.translations[key] = template;
-    return template;
-  }
+  Ember.assert(`Template for ${key} in ${this.id} is not a function`, Ember.typeOf(result) === 'function');
+
+  return result;
+}
+
+Locale.prototype._defineMissingTranslationTemplate(key) {
+  const missingMessage = this.container.lookupFactory('util:i18n/missing-message');
+  const locale = this.id;
+
+  function missingTranslation(data) { return missingMessage(locale, key, data); }
+
+  missingTranslation._isMissing = true;
+  this.translations[key] = missingTranslation;
+  return missingTranslation;
+}
+
+Locale.prototype._compileTemplate(key, string) {
+  const compile = this.container.lookupFactory('util:i18n/compile-template');
+  const template = compile(string, this.rtl);
+  this.translations[key] = template;
+  return template;
 }
 
 function getFlattenedTranslations(id, container) {
@@ -128,3 +125,5 @@ function withFlattenedKeys(object) {
 
   return result;
 }
+
+export default Locale;
