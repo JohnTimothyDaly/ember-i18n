@@ -16,7 +16,7 @@ function Locale(id, container) {
   this.rebuild();
 }
 
-Locale.prototype.rebuild() {
+Locale.prototype.rebuild = function() {
   this.translations = getFlattenedTranslations(this.id, this.container);
 
   walkConfigs(this.id, this.container, (config) => {
@@ -30,7 +30,7 @@ Locale.prototype.rebuild() {
   }
 }
 
-Locale.prototype.getCompiledTemplate(key, count) {
+Locale.prototype.getCompiledTemplate = function(key, count) {
   if (this.translations === undefined) { this._init(); }
 
   var result;
@@ -57,7 +57,7 @@ Locale.prototype.getCompiledTemplate(key, count) {
   return result;
 }
 
-Locale.prototype._defineMissingTranslationTemplate(key) {
+Locale.prototype._defineMissingTranslationTemplate = function(key) {
   const missingMessage = this.container.lookupFactory('util:i18n/missing-message');
   const locale = this.id;
 
@@ -68,7 +68,7 @@ Locale.prototype._defineMissingTranslationTemplate(key) {
   return missingTranslation;
 }
 
-Locale.prototype._compileTemplate(key, string) {
+Locale.prototype._compileTemplate = function(key, string) {
   const compile = this.container.lookupFactory('util:i18n/compile-template');
   const template = compile(string, this.rtl);
   this.translations[key] = template;
